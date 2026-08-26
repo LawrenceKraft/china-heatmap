@@ -44,9 +44,15 @@ export async function fetchGeoJson(adcode: string): Promise<unknown> {
     return state.geoCache.get(adcode);
   }
 
+  // CORS 代理：当 DataV 官方源被托管域名拦截（返回 403）时，
+  // 通过 api.allorigins.win 中转，绕过 Referer/Origin 限制
+  const proxy = (u: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`;
+
   const urls = [
     `${DATAV_BASE}/${adcode}_full.json`,
-    `${DATAV_BASE}/${adcode}.json`
+    `${DATAV_BASE}/${adcode}.json`,
+    proxy(`${DATAV_BASE}/${adcode}_full.json`),
+    proxy(`${DATAV_BASE}/${adcode}.json`)
   ];
 
   let lastErr: unknown = null;
