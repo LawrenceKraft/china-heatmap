@@ -1,0 +1,7 @@
+{
+  "name": "china-heatmap",
+  "buildCommand": "npm run build",
+  "outputDirectory": "./",
+  "framework": "static",
+  "projectType": "static"
+}

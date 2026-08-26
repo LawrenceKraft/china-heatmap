@@ -1,0 +1,15 @@
+{
+  "name": "china-heatmap",
+  "version": "2.0.0",
+  "description": "China data heatmap visualizer - TypeScript modular static project for EdgeOne Pages",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  },
+  "license": "MIT"
+}

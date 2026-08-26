@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>中国数据热力地图</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- 顶部导航栏 -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="logo">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="currentColor"/>
+          </svg>
+          <h1>中国数据热力地图</h1>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="breadcrumb" id="breadcrumb">
+          <span class="crumb crumb-current">全国</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="main">
+      <!-- 左侧控制面板 -->
+      <aside class="sidebar" id="sidebar">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>数据导入</h2>
+          </div>
+          <div class="panel-body">
+            <div class="upload-zone" id="uploadZone">
+              <input type="file" id="fileInput" accept=".csv,.xlsx,.xls,.tsv" hidden>
+              <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <p class="upload-text">点击或拖拽上传 CSV / Excel 文件</p>
+              <p class="upload-hint">支持 .csv .xlsx .xls .tsv</p>
+            </div>
+            <div class="file-info" id="fileInfo" hidden>
+              <div class="file-info-row">
+                <span class="file-name" id="fileName">-</span>
+                <button class="icon-btn" id="removeFile" title="移除文件">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+              <span class="file-meta" id="fileMeta">- 行数据</span>
+            </div>
+
+            <div class="column-mapping" id="columnMapping" hidden>
+              <label>区域列</label>
+              <select id="regionColSelect"></select>
+              <label>指标列（可切换不同指标上色）</label>
+              <select id="valueColSelect"></select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 下钻后的柱状对比面板 -->
+        <div class="panel" id="sidebarBarPanel" hidden>
+          <div class="panel-header">
+            <h2>数值对比</h2>
+          </div>
+          <div class="panel-body sidebar-bar-body" id="sidebarBarBody"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <h2>数据表格</h2>
+            <div class="search-box">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input type="text" id="searchInput" placeholder="搜索区域...">
+            </div>
+          </div>
+          <div class="panel-body table-panel">
+            <div class="empty-state" id="tableEmpty">
+              <p>请先上传数据文件</p>
+            </div>
+            <table class="data-table" id="dataTable" hidden>
+              <thead>
+                <tr>
+                  <th class="sortable" data-key="region">区域 <span class="sort-arrow"></span></th>
+                  <th class="sortable" data-key="value">数值 <span class="sort-arrow"></span></th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+          <div class="table-footer" id="tableFooter" hidden>
+            <span id="tableSummary">共 0 条</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <h2>统计摘要</h2>
+          </div>
+          <div class="panel-body">
+            <div class="stats-grid" id="statsGrid">
+              <div class="stat-card"><span class="stat-label">总数</span><span class="stat-value" id="statTotal">-</span></div>
+              <div class="stat-card"><span class="stat-label">最大值</span><span class="stat-value" id="statMax">-</span></div>
+              <div class="stat-card"><span class="stat-label">最小值</span><span class="stat-value" id="statMin">-</span></div>
+              <div class="stat-card"><span class="stat-label">平均值</span><span class="stat-value" id="statAvg">-</span></div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 右侧地图区域 -->
+      <section class="map-area">
+        <div class="map-toolbar" id="mapToolbar">
+          <div class="toolbar-left">
+            <button class="btn btn-back" id="btnBack" hidden>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+              返回上级
+            </button>
+            <div class="toolbar-actions">
+              <button class="btn btn-tool" id="btnExportPng" title="导出当前地图为 PNG 图片">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+                导出图片
+              </button>
+              <button class="btn btn-tool" id="btnExportCsv" title="导出当前数据为 CSV 文件">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                导出数据
+              </button>
+            </div>
+          </div>
+          <div class="map-status" id="mapStatus">
+            <span class="status-dot"></span>
+            <span id="statusText">正在加载地图数据...</span>
+            <button class="btn btn-retry" id="btnRetry" hidden title="重新加载当前地图">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+              </svg>
+              重试
+            </button>
+          </div>
+        </div>
+        <div id="chart"></div>
+        <div class="chart-overlay" id="chartOverlay" hidden>
+          <div class="overlay-spinner"></div>
+          <p id="overlayText">加载中...</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- 数据校验确认弹窗 -->
+  <div class="modal-overlay" id="confirmModal" hidden>
+    <div class="modal-box modal-sm">
+      <div class="modal-header">
+        <h3 id="confirmTitle">数据校验提示</h3>
+      </div>
+      <div class="modal-body modal-body-text" id="confirmBody"></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="confirmCancel">取消导入</button>
+        <button class="btn btn-primary" id="confirmOk">忽略问题继续</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CDN 依赖（多源降级加载：主源失败自动切换备用源，避免因单个 CDN 缓慢/不可用导致地图无法显示） -->
+  <script>
+    (function () {
+      // 每个库的多源列表，按顺序尝试加载，成功即停
+      // 优先国内快速镜像（npmmirror 实测最快），jsdelivr/unpkg 作为备用
+      var SOURCES = {
+        echarts: [
+          'https://registry.npmmirror.com/echarts/5.5.0/files/dist/echarts.min.js',
+          'https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js',
+          'https://unpkg.com/echarts@5.5.0/dist/echarts.min.js',
+          'https://cdn.bootcdn.net/ajax/libs/echarts/5.5.0/echarts.min.js'
+        ],
+        xlsx: [
+          'https://registry.npmmirror.com/xlsx/0.18.5/files/dist/xlsx.full.min.js',
+          'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+          'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js',
+          'https://cdn.bootcdn.net/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+        ]
+      };
+
+      // 判断库是否已加载成功
+      function isLoaded(key) {
+        if (key === 'echarts') return typeof window.echarts !== 'undefined';
+        if (key === 'xlsx') return typeof window.XLSX !== 'undefined';
+        return false;
+      }
+
+      // 按顺序加载一个库，直到某个源成功
+      function loadLibrary(key, urls, done) {
+        if (isLoaded(key)) { done(); return; }
+        var i = 0;
+        function next() {
+          if (i >= urls.length) {
+            console.error('[CDN] 所有源加载失败: ' + key);
+            done();
+            return;
+          }
+          var s = document.createElement('script');
+          s.src = urls[i++];
+          s.async = false;
+          s.onload = function () {
+            if (isLoaded(key)) { console.log('[CDN] ' + key + ' 加载成功'); done(); }
+            else next(); // 加载了但全局对象未出现，尝试下一个
+          };
+          s.onerror = function () { next(); };
+          document.head.appendChild(s);
+        }
+        next();
+      }
+
+      // 依次加载 echarts 和 xlsx，全部完成后加载 TypeScript 编译产物（ES module）
+      loadLibrary('echarts', SOURCES.echarts, function () {
+        loadLibrary('xlsx', SOURCES.xlsx, function () {
+          var app = document.createElement('script');
+          app.type = 'module';
+          app.src = 'dist/main.js';
+          document.head.appendChild(app);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
