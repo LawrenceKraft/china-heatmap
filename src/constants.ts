@@ -14,7 +14,7 @@ export const COUNTRY_ADCODE = '100000';
 export const NATION_NAME = '全国';
 
 /** Map data request timeout (ms) to avoid infinite loading. */
-export const FETCH_TIMEOUT = 15000;
+export const FETCH_TIMEOUT = 1500;
 
 /**
  * Drill-down depth: 0=country(province borders) 1=province(city borders)

@@ -55,31 +55,45 @@ export function setLoading(isLoading: boolean, text?: string): void {
 }
 
 /** Number of retries per network source when transient network errors occur. */
-const NETWORK_RETRIES = 2;
+const NETWORK_RETRIES = 0;
 
 /** HTTP statuses that should never be retried (request itself is rejected by the source). */
 const NO_RETRY_STATUSES = new Set([400, 401, 403, 404, 410, 451]);
 
 /**
+ * True when served from localhost / a local file, where the DataV API is reachable.
+ * On hosted sites (GitHub Pages etc.) DataV is blocked by CORS/403, so it is
+ * skipped entirely to keep the loading overlay snappy.
+ */
+function isLocalDev(): boolean {
+  const host = window.location.hostname;
+  return (
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '' ||
+    window.location.protocol === 'file:'
+  );
+}
+
+/**
  * Fetch GeoJSON for an adcode.
  *
- * Source order (fastest, most-likely-to-succeed first):
+ * Source order:
  *   1. Local fallback data/geo_<adcode>.json  — works on all hosts without network
- *   2. DataV official API                       — works for localhost; blocked (403) on most hosting
+ *   2. DataV official API (localhost only)     — blocked (CORS/403) on hosted sites
  *
- * On 403/404 the request is NOT retried (it will not become 200), and the next
- * source is tried immediately to keep the loading overlay snappy.
+ * On non-localhost hosts the DataV sources are skipped entirely, so a missing
+ * local file fails fast instead of hanging on a slow/blocked network request.
  */
 export async function fetchGeoJson(adcode: string): Promise<unknown> {
   if (state.geoCache.has(adcode)) {
     return state.geoCache.get(adcode);
   }
 
-  const urls = [
-    `data/geo_${adcode}.json`,                            // 1) local fallback (fastest, no network)
-    `${DATAV_BASE}/${adcode}_full.json`,                   // 2) DataV province/city
-    `${DATAV_BASE}/${adcode}.json`                         // 3) DataV district
-  ];
+  const urls = [`data/geo_${adcode}.json`]; // 1) local fallback (fastest, no network)
+  if (isLocalDev()) {
+    urls.push(`${DATAV_BASE}/${adcode}_full.json`, `${DATAV_BASE}/${adcode}.json`);
+  }
 
   let lastErr: unknown = null;
   let timedOut = false;
@@ -114,16 +128,19 @@ export async function fetchGeoJson(adcode: string): Promise<unknown> {
     }
   }
 
-  // All network sources failed; try the local fallback cache file.
-  try {
-    const fallbackRes = await fetch(`data/geo_${adcode}.json`);
-    if (fallbackRes.ok) {
-      const geoJson = await fallbackRes.json();
-      state.geoCache.set(adcode, geoJson);
-      return geoJson;
+  // DataV attempted but failed; retry the local file once (only relevant on
+  // localhost — on hosted sites the local file was already tried as urls[0]).
+  if (isLocalDev()) {
+    try {
+      const fallbackRes = await fetch(`data/geo_${adcode}.json`);
+      if (fallbackRes.ok) {
+        const geoJson = await fallbackRes.json();
+        state.geoCache.set(adcode, geoJson);
+        return geoJson;
+      }
+    } catch (err) {
+      // ignore local fallback failure
     }
-  } catch (err) {
-    // ignore local fallback failure
   }
 
   if (timedOut) {
