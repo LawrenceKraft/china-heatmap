@@ -15,7 +15,7 @@ import { initUI, getEls } from './ui.js';
 import { state, getAggregatedData } from './data-store.js';
 import { COUNTRY_ADCODE, NATION_NAME } from './constants.js';
 import { debounce, escapeHtml } from './utils.js';
-import { loadMap, setLoadMapCallbacks } from './map-loader.js';
+import { loadMap, prefetchChildrenGeo, setLoadMapCallbacks } from './map-loader.js';
 import { setParserCallbacks, parseFile, reparseColumnMapping, removeFile, isSupportedFile, setStatus, setRegionIndex } from './data-parser.js';
 import { renderChart, updateMap } from './map-renderer.js';
 import { renderTable, updateStats, initTable } from './table.js';
@@ -185,6 +185,11 @@ export function init(): void {
       renderTable();
       updateStats();
       updateBreadcrumb();
+      // Once the country map is ready, prefetch every province map in the
+      // background so the first drill-down click renders with no wait.
+      if (level === 0) {
+        setTimeout(() => prefetchChildrenGeo(COUNTRY_ADCODE), 300);
+      }
     }
   });
 

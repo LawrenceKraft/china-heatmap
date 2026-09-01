@@ -150,6 +150,37 @@ export async function fetchGeoJson(adcode: string): Promise<unknown> {
 }
 
 /**
+ * Prefetch all child-region GeoJSON files of a parent map (e.g. all provinces
+ * after the country map loads) into the geo cache, so a drill-down click
+ * renders instantly instead of waiting for the first (slow) download.
+ *
+ * Missing files (e.g. no city-level data on disk) fail fast and are ignored.
+ */
+export async function prefetchChildrenGeo(parentAdcode: string): Promise<void> {
+  const parent = state.geoCache.get(parentAdcode) as
+    | { features?: Array<{ properties?: { adcode?: string | number; adcode_new?: string | number } }> }
+    | undefined;
+  if (!parent?.features) return;
+
+  const adcodes = Array.from(
+    new Set(
+      parent.features
+        .map((f) => String(f.properties?.adcode ?? f.properties?.adcode_new ?? ''))
+        .filter((a) => a && a !== 'undefined' && !state.geoCache.has(a))
+    )
+  );
+  if (adcodes.length === 0) return;
+
+  // Fetch in small batches to avoid saturating browser connections.
+  const CONCURRENCY = 4;
+  for (let i = 0; i < adcodes.length; i += CONCURRENCY) {
+    await Promise.all(
+      adcodes.slice(i, i + CONCURRENCY).map((a) => fetchGeoJson(a).catch(() => null))
+    );
+  }
+}
+
+/**
  * Load a map view for the given adcode/name/level.
  * Returns true on success, false on failure (triggers the retry button).
  */
