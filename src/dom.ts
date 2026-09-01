@@ -6,17 +6,21 @@
 export interface DomElements {
   uploadZone: HTMLElement;
   fileInput: HTMLInputElement;
+  btnDownloadTemplate: HTMLButtonElement;
   fileInfo: HTMLElement;
   fileName: HTMLElement;
   fileMeta: HTMLElement;
   removeFile: HTMLElement;
   columnMapping: HTMLElement;
   regionColSelect: HTMLSelectElement;
+  cityColSelect: HTMLSelectElement;
+  districtColSelect: HTMLSelectElement;
   valueColSelect: HTMLSelectElement;
   searchInput: HTMLInputElement;
+  btnSearch: HTMLButtonElement;
+  searchSuggest: HTMLElement;
   dataTable: HTMLElement;
   tableBody: HTMLElement;
-  tablePanel: HTMLElement | null;
   tableEmpty: HTMLElement;
   tableFooter: HTMLElement;
   tableSummary: HTMLElement;
@@ -54,17 +58,21 @@ export function initEls(): DomElements {
   return {
     uploadZone: byId<HTMLElement>('uploadZone'),
     fileInput: byId<HTMLInputElement>('fileInput'),
+    btnDownloadTemplate: byId<HTMLButtonElement>('btnDownloadTemplate'),
     fileInfo: byId<HTMLElement>('fileInfo'),
     fileName: byId<HTMLElement>('fileName'),
     fileMeta: byId<HTMLElement>('fileMeta'),
     removeFile: byId<HTMLElement>('removeFile'),
     columnMapping: byId<HTMLElement>('columnMapping'),
     regionColSelect: byId<HTMLSelectElement>('regionColSelect'),
+    cityColSelect: byId<HTMLSelectElement>('cityColSelect'),
+    districtColSelect: byId<HTMLSelectElement>('districtColSelect'),
     valueColSelect: byId<HTMLSelectElement>('valueColSelect'),
     searchInput: byId<HTMLInputElement>('searchInput'),
+    btnSearch: byId<HTMLButtonElement>('btnSearch'),
+    searchSuggest: byId<HTMLElement>('searchSuggest'),
     dataTable: byId<HTMLElement>('dataTable'),
     tableBody: byId<HTMLElement>('tableBody'),
-    tablePanel: document.querySelector('.table-panel'),
     tableEmpty: byId<HTMLElement>('tableEmpty'),
     tableFooter: byId<HTMLElement>('tableFooter'),
     tableSummary: byId<HTMLElement>('tableSummary'),

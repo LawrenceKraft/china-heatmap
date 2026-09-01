@@ -6,9 +6,12 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "gen-template": "node scripts/gen-template.mjs",
+    "gen-outline": "node scripts/gen-map-outline.mjs"
   },
   "devDependencies": {
+    "exceljs": "^4.4.0",
     "typescript": "^5.4.0"
   },
   "license": "MIT"

@@ -1,69 +1,50 @@
 /**
- * Export functionality: PNG image and CSV data download.
+ * Export: current map as PNG, and the aggregated data as CSV.
+ *
+ * The CSV now uses 3 columns (省/市/区县/数值) to mirror the upload format,
+ * so a re-uploaded file is round-trip safe.
  */
 import { getEls } from './ui.js';
-import { state } from './data-store.js';
-import { csvEscape } from './utils.js';
-import { NATION_NAME } from './constants.js';
-import { getFilteredSortedData } from './table.js';
+import { getAggregatedData } from './data-store.js';
 
-const els = () => getEls();
-
-function setStatus(text: string, type: 'info' | 'loading' | 'error' | 'ok' = 'info'): void {
-  els().statusText.textContent = text;
-  els().statusDot.className = 'status-dot';
-  if (type === 'loading') els().statusDot.classList.add('loading');
-  if (type === 'error') els().statusDot.classList.add('error');
-}
-
-/** Export the current map view as a PNG image. */
+/** Export the current map view as a PNG download. */
 export function exportPng(): void {
-  try {
-    const inst = window.echarts.getInstanceByDom(els().chart);
-    if (!inst) {
-      setStatus('地图尚未加载，无法导出', 'error');
-      return;
-    }
-    const url = inst.getDataURL({
-      type: 'png',
-      pixelRatio: 2,
-      backgroundColor: '#0d1b2a'
-    });
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `中国热力地图_${state.currentView.name || NATION_NAME}.png`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setStatus('图片已导出', 'ok');
-  } catch (err) {
-    console.error('导出图片失败:', err);
-    setStatus('导出图片失败：' + (err instanceof Error ? err.message : String(err)), 'error');
-  }
+  const chart = window.echarts.getInstanceByDom(getEls().chart);
+  if (!chart) return;
+  const url = chart.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#0b1a2b' });
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `china-heatmap-${Date.now()}.png`;
+  a.click();
 }
 
-/** Export the current table data as a CSV file (UTF-8 BOM to avoid Excel garbling). */
+/** Export the aggregated data as a 4-column CSV (省/市/区县/数值). */
 export function exportCsv(): void {
-  try {
-    const data = getFilteredSortedData();
-    if (!data.length) {
-      setStatus('暂无数据可导出', 'error');
-      return;
-    }
-    const rows = data.map((d) => `${csvEscape(d.region)},${csvEscape(d.value != null ? d.value : '')}`);
-    const csv = '\uFEFF区域,数值\n' + rows.join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `中国热力地图数据_${state.currentView.name || NATION_NAME}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    setStatus('数据已导出', 'ok');
-  } catch (err) {
-    console.error('导出数据失败:', err);
-    setStatus('导出数据失败：' + (err instanceof Error ? err.message : String(err)), 'error');
+  const rows = getAggregatedData();
+  if (rows.length === 0) return;
+  const header = ['省', '市', '区县', '数值'];
+  const lines = [header.join(',')];
+  for (const r of rows) {
+    const cells = [
+      csvEscape(r.province),
+      csvEscape(r.city ?? ''),
+      csvEscape(r.district ?? ''),
+      r.value != null ? String(r.value) : ''
+    ];
+    lines.push(cells.join(','));
   }
+  const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `china-heatmap-${Date.now()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function csvEscape(s: string): string {
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
 }

@@ -122,7 +122,7 @@ body {
 
 /* ===== 侧边栏 ===== */
 .sidebar {
-  width: 340px;
+  width: 360px;
   flex-shrink: 0;
   background: var(--bg-secondary);
   border-right: 1px solid var(--border);
@@ -159,6 +159,63 @@ body {
   padding: 14px 16px;
 }
 
+/* ===== 侧边栏三模块固定分区 =====
+ * sidebar 为 flex column 容器，三个功能模块各占固定区域、互不挤占：
+ *   panel-import  数据导入：不收缩，上限 32vh，超出时 body 内部滚动
+ *   panel-table   数据表格：basis 0 纯弹性分配剩余空间（核心模块）
+ *   panel-stats   统计摘要：大屏完整显示，小屏可收缩（保底 130px）内部滚动
+ * flex 子项内部滚动的关键：min-height: 0（默认 min-height:auto 会按内容撑开）。
+ * 空间分配：import + stats 先按上限占位，table 拿剩余；小屏时 stats
+ * 优先收缩让 table 保住可用高度，sidebar 整体滚动仅作极端兜底。 */
+.panel-import {
+  flex: 0 0 auto;
+  max-height: 32vh;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.panel-import .panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.panel-table {
+  flex: 1 1 0;
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-table .panel-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-table .panel-header,
+.panel-table .table-footer {
+  flex-shrink: 0;
+}
+
+.panel-stats {
+  flex: 0 1 auto;
+  min-height: 130px;
+  max-height: 30vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-stats .panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 /* ===== 上传区域 ===== */
 .upload-zone {
   border: 2px dashed var(--border-light);
@@ -188,6 +245,49 @@ body {
 .upload-hint {
   font-size: 11px;
   color: var(--text-muted);
+}
+
+/* ===== 下载模板按钮 ===== */
+.btn-download-template {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: rgba(79, 163, 255, 0.08);
+  border: 1.5px dashed rgba(79, 163, 255, 0.45);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all var(--transition);
+}
+
+.btn-download-template:hover {
+  background: rgba(79, 163, 255, 0.16);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79, 163, 255, 0.12);
+  transform: translateY(-1px);
+}
+
+.btn-download-template:active {
+  transform: translateY(0);
+}
+
+.btn-download-template .btn-text {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.btn-download-template .btn-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.btn-download-template:hover .btn-hint {
+  color: var(--accent);
 }
 
 /* ===== 文件信息 ===== */
@@ -268,6 +368,29 @@ body {
 }
 
 /* ===== 搜索框 ===== */
+.search-area {
+  position: relative;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+}
+
+.search-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.search-row .search-box {
+  flex: 1;
+}
+
+.btn-search {
+  padding: 0 14px;
+  font-size: 12.5px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
 .search-box {
   display: flex;
   align-items: center;
@@ -275,8 +398,9 @@ body {
   background: var(--bg-primary);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 5px 8px;
+  padding: 6px 8px;
   color: var(--text-muted);
+  transition: border-color var(--transition);
 }
 
 .search-box:focus-within {
@@ -292,7 +416,7 @@ body {
   border: none;
   outline: none;
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 12.5px;
   width: 100%;
 }
 
@@ -300,12 +424,86 @@ body {
   color: var(--text-muted);
 }
 
-/* ===== 数据表格 ===== */
-.table-panel {
-  padding: 0;
-  max-height: 40vh;
+/* ===== 搜索联想下拉 ===== */
+.search-suggest {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background: rgba(13, 27, 42, 0.97);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(4px);
+  max-height: 264px;
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+.suggest-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.suggest-item:hover,
+.suggest-item.active {
+  background: rgba(79, 163, 255, 0.15);
+}
+
+.suggest-path {
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.suggest-path b {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.suggest-value {
+  color: var(--accent);
+  font-weight: 600;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.suggest-empty {
+  padding: 12px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.search-suggest::-webkit-scrollbar {
+  width: 8px;
+}
+
+.search-suggest::-webkit-scrollbar-thumb {
+  background: rgba(79, 163, 255, 0.4);
+  border-radius: 4px;
+}
+
+/* ===== 数据表格（独立滚动框） ===== */
+.table-scroll {
+  /* 弹性填充 panel-table 分配的剩余空间：高度由 flex 决定而非固定值，
+     内容超出时自动出滚动条，数据再多也不会挤占兄弟模块。 */
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
 }
 
 .data-table {
@@ -566,10 +764,18 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 14px;
-  background: rgba(13, 27, 42, 0.7);
+  gap: 16px;
+  background: rgba(13, 27, 42, 0.72);
   z-index: 6;
   backdrop-filter: blur(2px);
+  opacity: 1;
+  transition: opacity 0.25s ease;
+}
+
+/* 加载完成淡出（由 setLoading(false) 添加，250ms 后隐藏） */
+.chart-overlay.overlay-exit {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* 显式处理 hidden 属性，避免被 display: flex 覆盖 */
@@ -580,19 +786,54 @@ body {
 .chart-overlay p {
   color: var(--text-secondary);
   font-size: 13px;
+  min-height: 18px;
 }
 
-.overlay-spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid var(--border);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+/* 地图轮廓 + 扫描线加载指示器 */
+.overlay-map {
+  position: relative;
+  width: 116px;
+  height: 67px; /* 与 SVG viewBox 61.5:35.4 等比 */
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+.overlay-map-img {
+  width: 100%;
+  height: 100%;
+  animation: map-pulse 2s ease-in-out infinite;
+}
+
+.overlay-scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 26%;
+  border-radius: 3px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(79, 163, 255, 0.3),
+    rgba(79, 163, 255, 0.12) 55%,
+    transparent
+  );
+  mix-blend-mode: screen;
+  animation: scan 1.2s linear infinite;
+}
+
+@keyframes scan {
+  0% { transform: translateY(-110%); }
+  100% { transform: translateY(390%); }
+}
+
+@keyframes map-pulse {
+  0%, 100% {
+    opacity: 0.82;
+    filter: drop-shadow(0 0 4px rgba(79, 163, 255, 0.45));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 10px rgba(79, 163, 255, 0.8));
+  }
 }
 
 /* ===== 拖拽遮罩 ===== */
@@ -759,16 +1000,16 @@ body {
 }
 
 /* 滚动条样式（表格与柱状图共用） */
-.table-panel::-webkit-scrollbar,
+.table-scroll::-webkit-scrollbar,
 .sidebar-bar-body::-webkit-scrollbar {
   width: 8px;
 }
-.table-panel::-webkit-scrollbar-thumb,
+.table-scroll::-webkit-scrollbar-thumb,
 .sidebar-bar-body::-webkit-scrollbar-thumb {
   background: rgba(79, 163, 255, 0.4);
   border-radius: 4px;
 }
-.table-panel::-webkit-scrollbar-track,
+.table-scroll::-webkit-scrollbar-track,
 .sidebar-bar-body::-webkit-scrollbar-track {
   background: rgba(0, 0, 0, 0.15);
 }

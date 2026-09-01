@@ -1,162 +1,148 @@
 /**
- * Data table rendering with view filtering, search, sort, and virtual scrolling.
+ * Data table: rendering, sorting, and row-highlight interaction.
+ *
+ * Rendering model
+ * ---------------
+ * - Rows come from getRowsForCurrentView() (only regions in the current
+ *   drill level) and are rendered as plain <tr> rows inside the scrollable
+ *   .table-scroll container. The container provides native scrollbar + mouse
+ *   wheel scrolling via CSS (max-height + overflow-y: auto), so no JS
+ *   virtualization is needed — the per-level row count is small (34 provinces
+ *   / ~21 cities / ~20 districts at most).
+ * - Default sort is by value descending; clicking a column header toggles
+ *   region/value sorting.
+ *
+ * Historical bugs fixed here:
+ * - #dataTable / #tableFooter start with the `hidden` attribute in HTML and
+ *   were never un-hidden, so the table was invisible. renderTable() now
+ *   explicitly manages both.
+ * - The previous virtual scroll wrote a <div class="spacer"> into <tbody>,
+ *   which is invalid HTML (tbody may only contain tr) — the browser hoisted
+ *   the div out of the table and broke the layout. All rows are now standard
+ *   <tr><td> elements.
  */
 import { getEls } from './ui.js';
-import { state, getAggregatedData, getCurrentViewRegionSet } from './data-store.js';
-import { escapeHtml, normalizeRegionName } from './utils.js';
-import { ROW_HEIGHT, RENDER_BUFFER } from './constants.js';
+import { state, getRowsForCurrentView } from './data-store.js';
 import { RegionData } from './types.js';
-import { renderSidebarBar, setSidebarDataProvider, computeViewFilteredData } from './sidebar-bar.js';
+import { escapeHtml } from './utils.js';
 
 const els = () => getEls();
 
-/** Register the sidebar data provider (view-filtered rows). */
+/** Rows for the current view level after the active sort is applied. */
+function getVisibleRows(): RegionData[] {
+  const rows = getRowsForCurrentView().slice();
+  // Default sort: value descending (largest region first).
+  const sortKey = state.sort.key ?? 'value';
+  const dir = state.sort.dir === 'asc' ? 1 : -1;
+  rows.sort((a, b) => {
+    if (sortKey === 'value') {
+      const av = a.value ?? -Infinity;
+      const bv = b.value ?? -Infinity;
+      return (av - bv) * dir;
+    }
+    return a.region.localeCompare(b.region, 'zh') * dir;
+  });
+  return rows;
+}
+
+/**
+ * Initialize the table. Scrolling is handled natively by the .table-scroll
+ * container, so there is nothing to wire up here — the hook is kept so
+ * main.ts can call it symmetrically with other init functions.
+ */
 export function initTable(): void {
-  setSidebarDataProvider(computeViewFilteredData);
+  /* intentionally empty: scrolling is pure CSS */
 }
 
-/** Get filtered and sorted data for the table (respects view level, search, sort). */
-export function getFilteredSortedData(): RegionData[] {
-  let data = computeViewFilteredData();
-  if (state.search) {
-    const kw = state.search.toLowerCase();
-    data = data.filter((d) => d.region.toLowerCase().includes(kw));
-  }
-  if (state.sort.key) {
-    data.sort((a, b) => {
-      let result: number;
-      if (state.sort.key === 'value') {
-        const av = a.value != null ? a.value : -Infinity;
-        const bv = b.value != null ? b.value : -Infinity;
-        result = av - bv;
-      } else {
-        result = String(a.region).localeCompare(String(b.region), 'zh');
-      }
-      return state.sort.dir === 'asc' ? result : -result;
-    });
-  }
-  return data;
-}
-
-/** Render the data table (calls virtual row renderer and sidebar bar). */
+/** Re-render the table from scratch. */
 export function renderTable(): void {
-  const data = getFilteredSortedData();
-  const hasData = state.rawData.length > 0;
+  const rows = getVisibleRows();
+  state.tableData = rows;
 
-  els().tableEmpty.hidden = hasData;
-  els().dataTable.hidden = !hasData;
-  els().tableFooter.hidden = !hasData;
-
-  if (hasData) {
-    document.querySelectorAll('.sortable').forEach((el) => {
-      const th = el as HTMLElement;
-      const key = th.dataset.key as 'region' | 'value' | null;
-      th.classList.toggle('sorted', state.sort.key === key);
-      const arrow = th.querySelector('.sort-arrow');
-      if (arrow && state.sort.key === key) {
-        arrow.textContent = state.sort.dir === 'asc' ? '↑' : '↓';
-      } else if (arrow) {
-        arrow.textContent = '';
-      }
-    });
-
-    state.tableData = data;
-
-    if (els().tablePanel) {
-      els().tablePanel!.style.maxHeight = '40vh';
-      els().tablePanel!.style.height = '';
-    }
-
-    if (!(els().tablePanel as unknown as { __virtualBound?: boolean }).__virtualBound && els().tablePanel) {
-      els().tablePanel!.addEventListener('scroll', () => renderVirtualRows());
-      (els().tablePanel as unknown as { __virtualBound: boolean }).__virtualBound = true;
-    }
-
-    els().tableSummary.textContent = `显示 ${data.length} / 共 ${getAggregatedData().length} 个区域`;
-    renderVirtualRows();
-    renderSidebarBar();
-  }
-}
-
-/** Render only the visible table rows (virtual scroll). */
-function renderVirtualRows(): void {
-  const data = state.tableData;
-  if (!data.length) {
+  // Empty state: keep the footer visible (row count feedback) but hide rows.
+  if (rows.length === 0) {
     els().tableBody.innerHTML = '';
+    els().dataTable.hidden = true;
+    els().tableEmpty.hidden = false;
+    els().tableEmpty.textContent = state.rawData.length === 0 ? '请先上传数据' : '当前层级无数据';
+    els().tableFooter.hidden = false;
+    els().tableSummary.textContent = '当前层级共 0 条';
     return;
   }
-  const panel = els().tablePanel;
-  const viewH = panel && panel.clientHeight ? panel.clientHeight : 300;
-  const visibleCount = Math.ceil(viewH / ROW_HEIGHT);
-  const scrollTop = panel ? panel.scrollTop : 0;
 
-  let startIdx = Math.floor(scrollTop / ROW_HEIGHT) - RENDER_BUFFER;
-  startIdx = Math.max(0, startIdx);
-  let endIdx = startIdx + visibleCount + RENDER_BUFFER * 2;
-  endIdx = Math.min(data.length, endIdx);
+  // KEY FIX: the table starts hidden in HTML — it must be un-hidden here,
+  // otherwise nothing the renderer does will ever be visible.
+  els().tableEmpty.hidden = true;
+  els().dataTable.hidden = false;
+  els().tableFooter.hidden = false;
 
-  const fragment = document.createDocumentFragment();
-  for (let i = startIdx; i < endIdx; i++) {
-    const d = data[i];
-    const valStr = d.value != null ? Number(d.value).toLocaleString() : '—';
-    const isSelected = state.selectedRegion && normalizeRegionName(state.selectedRegion) === normalizeRegionName(d.region);
-    const tr = document.createElement('tr');
-    tr.className = isSelected ? 'selected' : '';
-    tr.dataset.region = d.region;
-    tr.innerHTML = `<td>${escapeHtml(d.region)}</td><td>${valStr}</td>`;
-    tr.addEventListener('click', () => {
-      state.selectedRegion = d.region;
-      const inst = window.echarts.getInstanceByDom(els().chart);
-      inst?.dispatchAction({ type: 'highlight', seriesIndex: 0, name: d.region });
-      els().tableBody.querySelectorAll('tr').forEach((r) => r.classList.remove('selected'));
-      tr.classList.add('selected');
-      if (state.currentView.level > 0 && inst) {
-        const opt = inst.getOption();
-        const seriesData = (opt.series as { data?: { name: string }[] }[])?.[0]?.data ?? [];
-        const idx = seriesData.findIndex((x) => x.name === d.region);
-        if (idx >= 0) inst.dispatchAction({ type: 'showTip', seriesIndex: 0, dataIndex: idx });
-      }
+  // Header sort indicators ("value desc" is the implicit default state).
+  document.querySelectorAll('.sortable').forEach((th) => {
+    const k = (th as HTMLElement).dataset.key;
+    const icon = th.querySelector('.sort-icon');
+    if (!icon) return;
+    const isDefaultValue = k === 'value' && state.sort.key == null;
+    const isCurrent = state.sort.key === k || isDefaultValue;
+    icon.textContent = !isCurrent ? '↕' : state.sort.dir === 'asc' ? '↑' : '↓';
+  });
+
+  // Standard <tr><td> rows (valid tbody content). Row count per level is
+  // small, so rendering everything at once is both correct and fast.
+  const html = rows
+    .map((r, i) => {
+      const valueClass = r.value == null ? 'value-empty' : '';
+      const isSel = state.selectedRegion && r.region === state.selectedRegion ? ' selected' : '';
+      return `<tr class="data-row${isSel}" data-idx="${i}">
+        <td>${escapeHtml(r.region)}</td>
+        <td class="${valueClass}" style="text-align:right">${formatValue(r.value)}</td>
+      </tr>`;
+    })
+    .join('');
+  els().tableBody.innerHTML = html;
+
+  // Row click -> highlight the region on the map.
+  els().tableBody.querySelectorAll('tr.data-row').forEach((trEl) => {
+    trEl.addEventListener('click', () => {
+      const idx = parseInt((trEl as HTMLElement).dataset.idx ?? '0', 10);
+      const r = state.tableData[idx];
+      if (!r) return;
+      state.selectedRegion = r.region;
+      renderTable();
+      // Highlight uses the leaf-level name (the actual map feature name).
+      const leaf = r.district ?? r.city ?? r.province;
+      window.echarts.getInstanceByDom(els().chart)?.dispatchAction({
+        type: 'highlight',
+        seriesIndex: 0,
+        name: leaf
+      });
     });
-    fragment.appendChild(tr);
-  }
+  });
 
-  const topPad = startIdx * ROW_HEIGHT;
-  const bottomPad = (data.length - endIdx) * ROW_HEIGHT;
-  els().tableBody.innerHTML = '';
-  if (topPad > 0) {
-    const topTr = document.createElement('tr');
-    topTr.style.height = topPad + 'px';
-    topTr.innerHTML = '<td colspan="2" style="padding:0;border:none"></td>';
-    els().tableBody.appendChild(topTr);
-  }
-  els().tableBody.appendChild(fragment);
-  if (bottomPad > 0) {
-    const bottomTr = document.createElement('tr');
-    bottomTr.style.height = bottomPad + 'px';
-    bottomTr.innerHTML = '<td colspan="2" style="padding:0;border:none"></td>';
-    els().tableBody.appendChild(bottomTr);
-  }
+  const totalInLevel = getRowsForCurrentView().length;
+  els().tableSummary.textContent = `当前层级共 ${totalInLevel} 条 · 按数值从大到小`;
 }
 
-/** Update the statistics summary from aggregated data. */
+function formatValue(v: number | null): string {
+  if (v == null) return '—';
+  if (Number.isInteger(v)) return v.toLocaleString();
+  return v.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+/** Update the top-level statistics bar (总数 / 最大 / 最小 / 平均). */
 export function updateStats(): void {
-  const values = getAggregatedData().map((d) => d.value).filter((v) => v != null) as number[];
-  if (!values.length) {
-    els().statTotal.textContent = '0';
-    els().statMax.textContent = '-';
-    els().statMin.textContent = '-';
-    els().statAvg.textContent = '-';
+  const rows = getRowsForCurrentView().filter((r) => r.value != null) as { value: number }[];
+  els().statTotal.textContent = String(rows.length);
+  if (rows.length === 0) {
+    els().statMax.textContent = '—';
+    els().statMin.textContent = '—';
+    els().statAvg.textContent = '—';
     return;
   }
-  const total = values.length;
+  const values = rows.map((r) => r.value);
   const max = Math.max(...values);
   const min = Math.min(...values);
   const avg = values.reduce((s, v) => s + v, 0) / values.length;
-  els().statTotal.textContent = String(total);
-  els().statMax.textContent = Number(max).toLocaleString();
-  els().statMin.textContent = Number(min).toLocaleString();
-  els().statAvg.textContent = Number(avg.toFixed(2)).toLocaleString();
+  els().statMax.textContent = max.toLocaleString();
+  els().statMin.textContent = min.toLocaleString();
+  els().statAvg.textContent = avg.toLocaleString(undefined, { maximumFractionDigits: 1 });
 }
-
-/** Unused helper kept for type completeness (region set is used by computeViewFilteredData). */
-export { getCurrentViewRegionSet };

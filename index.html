@@ -29,7 +29,7 @@
     <main class="main">
       <!-- 左侧控制面板 -->
       <aside class="sidebar" id="sidebar">
-        <div class="panel">
+        <div class="panel panel-import">
           <div class="panel-header">
             <h2>数据导入</h2>
           </div>
@@ -42,6 +42,13 @@
               <p class="upload-text">点击或拖拽上传 CSV / Excel 文件</p>
               <p class="upload-hint">支持 .csv .xlsx .xls .tsv</p>
             </div>
+            <button class="btn-download-template" id="btnDownloadTemplate" type="button" title="下载内置省市联动下拉的数据模板">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              <span class="btn-text">下载模板</span>
+              <span class="btn-hint">省市列可下拉或自由输入</span>
+            </button>
             <div class="file-info" id="fileInfo" hidden>
               <div class="file-info-row">
                 <span class="file-name" id="fileName">-</span>
@@ -55,10 +62,22 @@
             </div>
 
             <div class="column-mapping" id="columnMapping" hidden>
-              <label>区域列</label>
-              <select id="regionColSelect"></select>
-              <label>指标列（可切换不同指标上色）</label>
-              <select id="valueColSelect"></select>
+              <div class="mapping-row">
+                <label>省份列（必填）</label>
+                <select id="regionColSelect"></select>
+              </div>
+              <div class="mapping-row">
+                <label>城市列</label>
+                <select id="cityColSelect"></select>
+              </div>
+              <div class="mapping-row">
+                <label>区县列</label>
+                <select id="districtColSelect"></select>
+              </div>
+              <div class="mapping-row">
+                <label>指标列</label>
+                <select id="valueColSelect"></select>
+              </div>
             </div>
           </div>
         </div>
@@ -71,36 +90,44 @@
           <div class="panel-body sidebar-bar-body" id="sidebarBarBody"></div>
         </div>
 
-        <div class="panel">
+        <div class="panel panel-table">
           <div class="panel-header">
             <h2>数据表格</h2>
-            <div class="search-box">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              </svg>
-              <input type="text" id="searchInput" placeholder="搜索区域...">
-            </div>
           </div>
-          <div class="panel-body table-panel">
-            <div class="empty-state" id="tableEmpty">
-              <p>请先上传数据文件</p>
+          <div class="panel-body">
+            <div class="search-area">
+              <div class="search-row">
+                <div class="search-box">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                  <input type="text" id="searchInput" placeholder="搜索地区跳转，如：广州" autocomplete="off">
+                </div>
+                <button id="btnSearch" class="btn btn-primary btn-search" title="跳转到该地区">跳转</button>
+              </div>
+              <div class="search-suggest" id="searchSuggest" hidden></div>
             </div>
-            <table class="data-table" id="dataTable" hidden>
-              <thead>
-                <tr>
-                  <th class="sortable" data-key="region">区域 <span class="sort-arrow"></span></th>
-                  <th class="sortable" data-key="value">数值 <span class="sort-arrow"></span></th>
-                </tr>
-              </thead>
-              <tbody id="tableBody"></tbody>
-            </table>
+            <div class="table-scroll">
+              <div class="empty-state" id="tableEmpty">
+                <p>请先上传数据文件</p>
+              </div>
+              <table class="data-table" id="dataTable" hidden>
+                <thead>
+                  <tr>
+                    <th class="sortable" data-key="region">区域 <span class="sort-arrow"></span></th>
+                    <th class="sortable" data-key="value">数值 <span class="sort-arrow"></span></th>
+                  </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+              </table>
+            </div>
           </div>
           <div class="table-footer" id="tableFooter" hidden>
             <span id="tableSummary">共 0 条</span>
           </div>
         </div>
 
-        <div class="panel">
+        <div class="panel panel-stats">
           <div class="panel-header">
             <h2>统计摘要</h2>
           </div>
@@ -154,8 +181,17 @@
         </div>
         <div id="chart"></div>
         <div class="chart-overlay" id="chartOverlay" hidden>
-          <div class="overlay-spinner"></div>
-          <p id="overlayText">加载中...</p>
+          <div class="overlay-map">
+            <img
+              class="overlay-map-img"
+              src="data/map-outline.svg"
+              alt=""
+              draggable="false"
+              onerror="this.style.visibility='hidden'"
+            />
+            <div class="overlay-scan"></div>
+          </div>
+          <p id="overlayText">正在加载地图数据...</p>
         </div>
       </section>
     </main>
@@ -169,8 +205,8 @@
       </div>
       <div class="modal-body modal-body-text" id="confirmBody"></div>
       <div class="modal-footer">
-        <button class="btn btn-ghost" id="confirmCancel">取消导入</button>
-        <button class="btn btn-primary" id="confirmOk">忽略问题继续</button>
+        <button class="btn btn-ghost" id="confirmCancel">移除文件</button>
+        <button class="btn btn-primary" id="confirmOk">重新上传</button>
       </div>
     </div>
   </div>

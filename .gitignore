@@ -31,3 +31,7 @@ Thumbs.db
 .cache/
 .tmp/
 .temp/
+
+# Test screenshots generated during development
+table-scroll-test.png
+.playwright-cli/
