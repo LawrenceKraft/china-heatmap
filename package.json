@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "build:site": "npm run build && node scripts/assemble-site.mjs",
     "dev": "tsc --watch",
-    "clean": "rm -rf dist",
+    "serve": "node scripts/serve-local.mjs",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true});require('fs').rmSync('site',{recursive:true,force:true})\"",
     "gen-template": "node scripts/gen-template.mjs",
     "gen-outline": "node scripts/gen-map-outline.mjs"
   },

@@ -79,21 +79,23 @@ npx serve .
 ```
 map/
 ├── index.html        # 主页面
-├── edgeone.json      # EdgeOne Pages 部署配置（发布根目录）
+├── edgeone.json      # EdgeOne Pages 部署配置（构建 site/ 并发布）
 ├── start.bat         # 一键启动脚本（Windows：自动开服务器 + 打开浏览器）
 ├── css/
 │   └── style.css     # 样式
 ├── src/              # TypeScript 源码（编译到 dist/）
 ├── dist/             # TypeScript 编译产物（ES module，被 index.html 引用）
 ├── scripts/
-│   ├── download-geo.js    # 下载省级地图兜底数据（node scripts/download-geo.js）
-│   └── serve-local.mjs    # 本地静态服务器（node scripts/serve-local.mjs [port]）
+│   ├── assemble-site.mjs    # 组装部署产物 site/（npm run build:site 自动调用）
+│   ├── download-geo.js      # 下载省级地图兜底数据（node scripts/download-geo.js）
+│   └── serve-local.mjs      # 本地静态服务器（node scripts/serve-local.mjs [port]）
 ├── data/
 │   ├── example.csv                        # 省级示例数据
 │   ├── province_city_data.csv             # 省级+市级示例数据
 │   ├── province_city_district_data.csv    # 省+市+区县三级示例数据
 │   ├── geo_100000.json                    # 全国地图本地兜底文件
 │   └── geo_{adcode}.json                  # 各省（33 个）地图本地兜底文件（如 geo_440000.json 为广东省）
+├── site/              # 部署产物（npm run build:site 生成：index.html/css/dist/data，已 gitignore）
 └── README.md
 ```
 
@@ -110,12 +112,32 @@ map/
 - **数据解析**：SheetJS (xlsx)，支持 CSV 和 Excel
 - **前端架构**：纯静态 HTML + CSS + TypeScript（编译为 ES Module），零运行时构建依赖
 
-## 部署
+## 构建与部署
 
-纯前端静态应用，可直接部署到任意静态服务器：
+纯前端静态应用，无需后端、无需数据库、无需 API Key。为让 **GitHub Pages 与 EdgeOne Pages 双平台行为一致**，部署前先用 `assemble-site.mjs` 组装一份**只含运行资源的干净发布目录 `site/`**（仅 `index.html`、`css/`、`dist/`、`data/`，不含源码与 node_modules）：
 
-- **GitHub Pages / Vercel / Netlify / CloudBase / EdgeOne Pages** 等，直接上传整个项目即可
-- 无需后端、无需数据库、无需 API Key
+```bash
+npm run build:site    # = tsc 编译（dist/）+ 组装发布目录（site/）
+```
+
+### GitHub Pages（推送自动部署）
+
+推送 `main` 分支后，`.github/workflows/deploy.yml` 会自动执行 `npm run build:site` 并只上传 `site/`，`node_modules/`、`src/` 等不会进入 Pages 产物。
+
+### EdgeOne Pages
+
+`edgeone.json` 已配置 `buildCommand: "npm run build:site"`、`outputDirectory: "./site"`：
+
+- **控制台关联仓库**：平台自动安装依赖、执行构建并发布 `site/`
+- **本地 CLI**：使用 EdgeOne CLI 上传 `site/` 目录部署
+- 该配置同时包含全局安全响应头与 `data/` 静态数据边缘缓存（仅对 EdgeOne 生效，不影响 GitHub Pages）
+
+### 本地开发与预览
+
+- 本地开发预览（服务项目根目录，`dist/` 变更实时生效）：
+  - 双击 `start.bat`（自动起服务器并打开浏览器）
+  - 或 `npm run serve`（Node 静态服务器，默认端口 8123）
+- 部署前预览产物：`npx serve site` 后访问返回的地址
 
 ## 常见问题
 

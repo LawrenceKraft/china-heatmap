@@ -1,7 +1,23 @@
 {
   "name": "china-heatmap",
-  "buildCommand": "npm run build",
-  "outputDirectory": "./",
+  "buildCommand": "npm run build:site",
+  "outputDirectory": "./site",
   "framework": "static",
-  "projectType": "static"
+  "projectType": "static",
+  "headers": [
+    {
+      "source": "/*",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+      ]
+    }
+  ],
+  "caches": [
+    {
+      "source": "/data/*",
+      "cacheTtl": 86400
+    }
+  ]
 }
